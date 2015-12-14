@@ -10,6 +10,7 @@ import java.util.Random;
 import exceptions.NoSpaceAvailableException;
 import models.Hole;
 import models.Process;
+import random.UniformRandomGenerator;
 
 public class SimulationController
 {
@@ -155,7 +156,7 @@ public class SimulationController
 		if (worstHole.getSize() == 0)
 			holes.remove(worstHole);
 	}
-	
+
 	/**
 	 * handles a single event in the simulation
 	 * 
@@ -165,11 +166,11 @@ public class SimulationController
 	 */
 	public String singleStep(String algorithm)
 	{
-		Random rand = new Random();
-		int size = rand.nextInt(400) + 1;
+		UniformRandomGenerator rng = new UniformRandomGenerator(200, 500);
+		int size = (int) Math.round(rng.nextRand());
 		try
 		{
-			worstFit(100);
+			worstFit(size);
 		} catch (NoSpaceAvailableException e)
 		{
 			// TODO Auto-generated catch block
@@ -178,12 +179,10 @@ public class SimulationController
 		return "Arrival P1 t=2 size=100";
 
 	}
-	
-	
+
 	public static void main(String[] args)
 	{
 		// you can use this main for testing ya 7abiby
 	}
-
 
 }
