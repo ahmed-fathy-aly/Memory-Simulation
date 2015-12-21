@@ -5,39 +5,56 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 
-import exceptions.NoSpaceAvailableException;
 import models.Hole;
 import models.Process;
+import random.GaussianRandomGenerator;
+import random.ExponentialRandomGenerator;
 import random.UniformRandomGenerator;
+import exceptions.NoSpaceAvailableException;
 
 public class SimulationController
 {
 	/* constants */
-	public static int INITIAL_HOLE_SIZE = 1000;
 
 	/* fields */
 	private List<Hole> holes;
-	private List<Process> processes;
+	private List<Process> processes, queue;
+	private Event headEvent;
+	private ExponentialRandomGenerator interArrivalTimeGenerator;
+	private UniformRandomGenerator serviceTimeGenerator;
+	private GaussianRandomGenerator processSizeGenerator;
+	private int currentSimulationTime, previousEventTime, numProcesses, occupiedSize;
+	private Statistics statistics;
+	private String eventsDescription;
+
+	/* el fields elly 7abiby beya5odha mn el GUI */
+	private String algorithm;
+	private int iniitialHoleSize, averageInterrival, meanProcessSize;
+	private double varianceProcessSize;
 
 	/* constructor */
 	public SimulationController()
 	{
 		this.holes = new ArrayList<>();
 		this.processes = new ArrayList<>();
+		this.headEvent = null;
+		this.queue = new ArrayList<>();
+		this.interArrivalTimeGenerator = new ExponentialRandomGenerator(0.2);
+		this.serviceTimeGenerator = new UniformRandomGenerator(1, 10);
+		this.processSizeGenerator = new GaussianRandomGenerator(100, 1);
+		this.currentSimulationTime = 0;
+		this.previousEventTime = 0;
+		this.occupiedSize = 0;
+		this.numProcesses = 0;
+		this.statistics = new Statistics();
+		this.eventsDescription = "";
 	}
 
 	/* setters and getters */
-
 	public List<Hole> getHoles()
 	{
 		return holes;
-	}
-
-	public void setHoles(List<Hole> holes)
-	{
-		this.holes = holes;
 	}
 
 	public List<Process> getProcesses()
@@ -45,27 +62,129 @@ public class SimulationController
 		return processes;
 	}
 
-	public void setProcesses(List<Process> processes)
+	public void setAlgorithm(String algorithm)
 	{
-		this.processes = processes;
+		this.algorithm = algorithm;
 	}
 
+	public void setMemorySize(int memorySize)
+	{
+		this.iniitialHoleSize = memorySize;
+	}
+
+	public void setAverageInterrival(int averageInterrival)
+	{
+		this.averageInterrival = averageInterrival;
+	}
+
+	public void setMeanProcessSize(int meanProcessSize)
+	{
+		this.meanProcessSize = meanProcessSize;
+	}
+
+	public void setVarianceProcessSize(double varianceProcessSize)
+	{
+		this.varianceProcessSize = varianceProcessSize;
+	}
+
+	public Statistics getStatistics()
+	{
+
+		return statistics;
+	}
+	
 	/* methods */
 
-	/* TODO - Add your code hena ya 7abiby */
+	private void firstFit(Process newProcess) throws NoSpaceAvailableException
+	{
+		// find the first hole that fits
+		int size = newProcess.getSize();
+		Hole firstHole = null;
+		for (Hole hole : holes)
+			if (hole.getSize() >= size)
+			{
+				firstHole = hole;
+				break;
+			}
+		if (firstHole == null)
+			throw new NoSpaceAvailableException();
+
+		// add the process to that hole
+		newProcess.setMemoryEntryTime(currentSimulationTime);
+		firstHole.addProcess(newProcess);
+		processes.add(newProcess);
+		scheduleDepartureEvent(newProcess);
+		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
+
+		// remove the hole if its size became zero
+		if (firstHole.getSize() == 0)
+			holes.remove(firstHole);
+	}
+
+	private void bestFit(Process newProcess) throws NoSpaceAvailableException
+	{
+		// find the first hole that fits
+		int size = newProcess.getSize();
+		Hole bestHole = null;
+		for (Hole hole : holes)
+			if (hole.getSize() >= size)
+				if (bestHole == null || (hole.getSize() < bestHole.getSize()))
+					bestHole = hole;
+		if (bestHole == null)
+			throw new NoSpaceAvailableException();
+
+		// add the process to that hole
+		newProcess.setMemoryEntryTime(currentSimulationTime);
+		bestHole.addProcess(newProcess);
+		processes.add(newProcess);
+		scheduleDepartureEvent(newProcess);
+		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
+
+		// remove the hole if its size became zero
+		if (bestHole.getSize() == 0)
+			holes.remove(bestHole);
+	}
+
+	private void worstFit(Process newProcess) throws NoSpaceAvailableException
+	{
+		// find the first hole that fits
+		int size = newProcess.getSize();
+		Hole worstHole = null;
+		for (Hole hole : holes)
+			if (hole.getSize() >= size)
+				if (worstHole == null || (hole.getSize() > worstHole.getSize()))
+					worstHole = hole;
+		if (worstHole == null)
+			throw new NoSpaceAvailableException();
+
+		// add the process to that hole
+		newProcess.setMemoryEntryTime(currentSimulationTime);
+		worstHole.addProcess(newProcess);
+		processes.add(newProcess);
+		scheduleDepartureEvent(newProcess);
+		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
+
+		// remove the hole if its size became zero
+		if (worstHole.getSize() == 0)
+			holes.remove(worstHole);
+	}
 
 	public void initialize()
 	{
 		holes.clear();
 		processes.clear();
-		holes.add(new Hole(0, INITIAL_HOLE_SIZE));
-
-		// TODO - initialize your stuff here brdo ya 7abiby
+		queue.clear();
+		holes.add(new Hole(0, iniitialHoleSize));
+		currentSimulationTime = 0;
+		previousEventTime = 0;
+		headEvent = null;
+		statistics = new Statistics();
+		numProcesses = 1;
+		occupiedSize = 0;
+		addEvent(new Event(Event.Type.PROCESS_ARRIVAL, 0,
+				new Process((int) interArrivalTimeGenerator.nextRand(), "P0", 0)));
 	}
 
-	/**
-	 * merges holes that are next to each other
-	 */
 	private void mergeHoles()
 	{
 		// sort holes according to their start
@@ -92,97 +211,219 @@ public class SimulationController
 		holes = newHoles;
 	}
 
-	private void firstFit(int size) throws NoSpaceAvailableException
+	public String singleStep()
 	{
-		// find the first hole that fits
-		Hole firstHole = null;
-		for (Hole hole : holes)
-			if (hole.getSize() >= size)
-			{
-				firstHole = hole;
+		Event event = pickHeadEvent();
+		if (event == null)
+			return "System is static";
+
+		// initialize
+		eventsDescription = "";
+		previousEventTime = currentSimulationTime;
+		currentSimulationTime = event.getTime();
+		while (true)
+		{
+
+			// handle event
+			if (event.getType() == Event.Type.PROCESS_ARRIVAL)
+				processArrivalHandler(event, algorithm);
+			else if (event.getType() == Event.Type.PROCESS_DEPARTURE)
+				processDepartureHandler(event, algorithm);
+
+			// update statistics
+			updateSigmaStatistics();
+
+			if (headEvent == null || headEvent.getTime() > currentSimulationTime)
 				break;
-			}
-		if (firstHole == null)
-			throw new NoSpaceAvailableException();
-
-		// add the process to that hole
-		Process newProcess = new Process(size, "P" + (processes.size() + 1));
-		firstHole.addProcess(newProcess);
-		processes.add(newProcess);
-
-		// remove the hole if its size became zero
-		if (firstHole.getSize() == 0)
-			holes.remove(firstHole);
-	}
-
-	private void bestFit(int size) throws NoSpaceAvailableException
-	{
-		// find the first hole that fits
-		Hole bestHole = null;
-		for (Hole hole : holes)
-			if (hole.getSize() >= size)
-				if (bestHole == null || (hole.getSize() < bestHole.getSize()))
-					bestHole = hole;
-		if (bestHole == null)
-			throw new NoSpaceAvailableException();
-
-		// add the process to that hole
-		Process newProcess = new Process(size, "P" + (processes.size() + 1));
-		bestHole.addProcess(newProcess);
-		processes.add(newProcess);
-
-		// remove the hole if its size became zero
-		if (bestHole.getSize() == 0)
-			holes.remove(bestHole);
-	}
-
-	private void worstFit(int size) throws NoSpaceAvailableException
-	{
-		// find the first hole that fits
-		Hole worstHole = null;
-		for (Hole hole : holes)
-			if (hole.getSize() >= size)
-				if (worstHole == null || (hole.getSize() > worstHole.getSize()))
-					worstHole = hole;
-		if (worstHole == null)
-			throw new NoSpaceAvailableException();
-
-		// add the process to that hole
-		Process newProcess = new Process(size, "P" + (processes.size() + 1));
-		worstHole.addProcess(newProcess);
-		processes.add(newProcess);
-
-		// remove the hole if its size became zero
-		if (worstHole.getSize() == 0)
-			holes.remove(worstHole);
-	}
-
-	/**
-	 * handles a single event in the simulation
-	 * 
-	 * @param algorithm
-	 *            "First Fit", "Best Fit", "Worst Fit"
-	 * @return readable description of the event e.g Arrival P1 t=2 size=100
-	 */
-	public String singleStep(String algorithm)
-	{
-		UniformRandomGenerator rng = new UniformRandomGenerator(200, 500);
-		int size = (int) Math.round(rng.nextRand());
-		try
-		{
-			worstFit(size);
-		} catch (NoSpaceAvailableException e)
-		{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			event = pickHeadEvent();
 		}
-		return "Arrival P1 t=2 size=100";
+		// return description of what happened
+		return eventsDescription;
 
 	}
+
+	private void updateSigmaStatistics()
+	{
+		statistics.updateQueueLength(queue.size(), currentSimulationTime, previousEventTime);
+		statistics.updateOccupiedSize(occupiedSize, currentSimulationTime, previousEventTime);
+	}
+
+	private void processDepartureHandler(Event event, String algorithm)
+	{
+		Process departuringProcess = event.getProcess();
+		processes.remove(departuringProcess);
+		occupiedSize -= departuringProcess.getSize();
+		holes.add(new Hole(departuringProcess.getStart(), departuringProcess.getEnd()));
+		mergeHoles();
+
+		getFromQueue(algorithm);
+
+		departuringProcess.setDepartureTime(currentSimulationTime);
+		statistics.updateDepartureStatistics(departuringProcess);
+
+		eventsDescription += departuringProcess.getName() + " departure at t = " + currentSimulationTime + "\n";
+	}
+
+	private void getFromQueue(String algorithm)
+	{
+		for (int i = 0; i < queue.size(); i++)
+			if (algorithm == "First Fit")
+				try
+				{
+					firstFit(queue.get(i));
+					queue.remove(i);
+					break;
+				} catch (NoSpaceAvailableException e)
+				{
+					continue;
+				}
+			else if (algorithm == "Worst Fit")
+				try
+				{
+					worstFit(queue.get(i));
+					queue.remove(i);
+					break;
+				} catch (NoSpaceAvailableException e)
+				{
+					continue;
+				}
+			else if (algorithm == "Best Fit")
+				try
+				{
+					bestFit(queue.get(i));
+					queue.remove(i);
+					break;
+				} catch (NoSpaceAvailableException e)
+				{
+					continue;
+				}
+
+	}
+
+	private void processArrivalHandler(Event event, String algorithm)
+	{
+		Process arrivingProcess = event.getProcess();
+		eventsDescription += arrivingProcess.getName() + " arrives at t = " + currentSimulationTime + " with size = "
+				+ arrivingProcess.getSize() + "\n";
+		if (algorithm == "First Fit")
+			try
+			{
+				firstFit(arrivingProcess);
+			} catch (NoSpaceAvailableException e)
+			{
+				addProcessToQueue(event.getProcess());
+			}
+		else if (algorithm == "Worst Fit")
+			try
+			{
+				worstFit(arrivingProcess);
+			} catch (NoSpaceAvailableException e)
+			{
+				addProcessToQueue(event.getProcess());
+			}
+		else if (algorithm == "Best Fit")
+			try
+			{
+				bestFit(arrivingProcess);
+			} catch (NoSpaceAvailableException e)
+			{
+				addProcessToQueue(event.getProcess());
+			}
+		scheduleArrivalEvent();
+	}
+
+	private void addProcessToQueue(Process process)
+	{
+		queue.add(process);
+		eventsDescription += process.getName() + " enters queue at t = " + currentSimulationTime + "\n";
+	}
+
+	private void scheduleDepartureEvent(Process process)
+	{
+		int serviceTime = (int) serviceTimeGenerator.nextRand();
+		int departureTime = currentSimulationTime + serviceTime;
+		Event newEvent = new Event(Event.Type.PROCESS_DEPARTURE, departureTime, process);
+		addEvent(newEvent);
+	}
+
+	private void scheduleArrivalEvent()
+	{
+		int interArrivaltime = (int) (interArrivalTimeGenerator.nextRand());
+		int arrivalTime = currentSimulationTime + interArrivaltime;
+		int size = (int) processSizeGenerator.nextRand();
+		Process newProcess = new Process(size, "P" + numProcesses, arrivalTime);
+		numProcesses += 1;
+		Event newEvent = new Event(Event.Type.PROCESS_ARRIVAL, arrivalTime, newProcess);
+		addEvent(newEvent);
+	}
+
+	private Event pickHeadEvent()
+	{
+		if (headEvent == null)
+			return null;
+		Event retEvent = headEvent;
+		headEvent = headEvent.getNextEvent();
+		return retEvent;
+	}
+
+	private void addEvent(Event newEvent)
+	{
+		if (headEvent == null)
+			headEvent = newEvent;
+		else
+		{
+			Event curEvent = headEvent;
+			if (newEvent.getTime() < curEvent.getTime())
+			{
+				newEvent.setNextEvent(curEvent.getNextEvent());
+				curEvent.setNextEvent(newEvent);
+				int time1, time2;
+				Event.Type type1, type2;
+				Process process1, process2;
+				time1 = curEvent.getTime();
+				type1 = curEvent.getType();
+				process1 = curEvent.getProcess();
+
+				time2 = newEvent.getTime();
+				type2 = newEvent.getType();
+				process2 = newEvent.getProcess();
+
+				curEvent.setTime(time2);
+				curEvent.setType(type2);
+				curEvent.setProcess(process2);
+				newEvent.setTime(time1);
+				newEvent.setType(type1);
+				newEvent.setProcess(process1);
+			} else
+			{
+				while (curEvent.getNextEvent() != null && curEvent.getNextEvent().getTime() <= newEvent.getTime())
+					curEvent = curEvent.getNextEvent();
+				newEvent.setNextEvent(curEvent.getNextEvent());
+				curEvent.setNextEvent(newEvent);
+			}
+		}
+
+	}
+
+	// private void printEvents() {
+	// Event event = headEvent;
+	// System.out.println("events list:");
+	// while (event != null) {
+	// event.print();
+	// event = event.getNextEvent();
+	// }
+	// System.out.println("-----------------");
+	//
+	// }
 
 	public static void main(String[] args)
 	{
 		// you can use this main for testing ya 7abiby
+		SimulationController controller = new SimulationController();
+		controller.initialize();
+		controller.setAlgorithm("best fit");
+		for (int i = 0; i < 10; i++)
+			System.out.println(controller.singleStep());
 	}
 
 }

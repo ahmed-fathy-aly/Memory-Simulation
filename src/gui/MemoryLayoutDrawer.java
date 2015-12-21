@@ -13,7 +13,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.StringTokenizer;
 
 import javax.swing.JComponent;
 
@@ -23,6 +22,11 @@ import models.Process;
 
 public class MemoryLayoutDrawer extends JComponent
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2L;
+
 	/* constants */
 	public static final Color[] allColors = new Color[]
 	{ Color.BLUE, Color.GREEN, Color.MAGENTA, Color.ORANGE, Color.PINK, Color.RED, Color.YELLOW };
@@ -139,6 +143,7 @@ public class MemoryLayoutDrawer extends JComponent
 
 		// draw start index
 		g2.setColor(Color.BLACK);
+		@SuppressWarnings("unused")
 		Rectangle2D r = fm.getStringBounds(item.getSize() + "", g2);
 		g2.drawString(item.getStart() + "", 0, startY + fm.getAscent());
 
