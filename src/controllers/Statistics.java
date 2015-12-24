@@ -36,7 +36,6 @@ public class Statistics
 		finishedProcesses++;
 		int timeInTheSystem = process.getDepartureTime() - process.getArrivalTime();
 		int waitingTime = process.getMemoryEntryTime() - process.getArrivalTime();
-		System.out.println(process.getName() + " " + timeInTheSystem + " " + waitingTime);
 		cumulativeTimeInTheSystem += timeInTheSystem;
 		cumulativeWaitingTime += waitingTime;
 	}

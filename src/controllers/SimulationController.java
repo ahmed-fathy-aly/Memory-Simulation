@@ -202,6 +202,7 @@ public class SimulationController
 		statistics = new Statistics();
 		numProcesses = 1;
 		occupiedSize = 0;
+		processSizeGenerator.nextRand();
 		addEvent(new Event(Event.Type.PROCESS_ARRIVAL, 0,
 				new Process((int) processSizeGenerator.nextRand(), "P0", 0)));
 		
@@ -244,6 +245,10 @@ public class SimulationController
 		eventsDescription = "";
 		previousEventTime = currentSimulationTime;
 		currentSimulationTime = event.getTime();
+		
+		// update statistics
+		updateSigmaStatistics();
+		
 		while (true)
 		{
 
@@ -253,8 +258,7 @@ public class SimulationController
 			else if (event.getType() == Event.Type.PROCESS_DEPARTURE)
 				processDepartureHandler(event);
 
-			// update statistics
-			updateSigmaStatistics();
+
 
 			if (headEvent == null || headEvent.getTime() > currentSimulationTime)
 				break;
