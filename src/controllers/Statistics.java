@@ -9,6 +9,12 @@ public class Statistics
 	private int maxBufferSize;
 	private int bufferSizeArea;
 	private int cumulativeOccupiedSize;
+	
+	private double absoluteAverageMemoryUtilization;
+	private double percentageAverageMemoryUtilization;
+	private double averageTimeInTheSystem;
+	private double averageWaitingTime;
+	private double averageBufferSize;
 
 	public Statistics()
 	{
@@ -18,6 +24,11 @@ public class Statistics
 		maxBufferSize = 0;
 		bufferSizeArea = 0;
 		cumulativeOccupiedSize = 0;
+		absoluteAverageMemoryUtilization = 0;
+		percentageAverageMemoryUtilization = 0;
+		averageTimeInTheSystem = 0;
+		averageWaitingTime = 0;
+		averageBufferSize = 0;
 	}
 
 	public void updateDepartureStatistics(Process process)
@@ -25,6 +36,7 @@ public class Statistics
 		finishedProcesses++;
 		int timeInTheSystem = process.getDepartureTime() - process.getArrivalTime();
 		int waitingTime = process.getMemoryEntryTime() - process.getArrivalTime();
+		System.out.println(process.getName() + " " + timeInTheSystem + " " + waitingTime);
 		cumulativeTimeInTheSystem += timeInTheSystem;
 		cumulativeWaitingTime += waitingTime;
 	}
@@ -39,43 +51,44 @@ public class Statistics
 	{
 		cumulativeOccupiedSize += occupiedSize * (currentSimulationTime - previousEventTime);
 	}
-
-	public double getAverageBufferSize(int currentSimulationTime)
-	{
-		return bufferSizeArea * 1.0 / currentSimulationTime;
+	
+	public void computeStatistics(int currentSimulationTime, int memorySize) {
+		averageBufferSize = bufferSizeArea * 1.0 / currentSimulationTime;
+		averageTimeInTheSystem = cumulativeTimeInTheSystem * 1.0 / finishedProcesses;
+		averageWaitingTime = cumulativeWaitingTime * 1.0 / finishedProcesses;
+		absoluteAverageMemoryUtilization = cumulativeOccupiedSize * 1.0 / currentSimulationTime;
+		percentageAverageMemoryUtilization = cumulativeOccupiedSize * 100.0 / currentSimulationTime / memorySize;
 	}
-
-	public int getMaxBufferSize()
-	{
-		return maxBufferSize;
-	}
-
-	public int getNumberFinishedProcesses()
-	{
+	
+	
+	/* get any statistics u want from these getters ya 7abeeby */
+	
+	public int getNumberFinishedProcesses() {
 		return finishedProcesses;
 	}
-
+	
+	public double getAverageBuferSize() {
+		return averageBufferSize;
+	}
+	
 	public double getAverageTimeInSystem()
 	{
-		return cumulativeTimeInTheSystem * 1.0 / finishedProcesses;
+		return averageTimeInTheSystem;
 	}
 
 	public double getAverageWaitingTime()
 	{
-		return cumulativeWaitingTime * 1.0 / finishedProcesses;
+		return averageWaitingTime;
 	}
 
-	public double getAbsoluteAverageMemoryUtilization(int currentSimulationTime)
+	public double getAbsoluteAverageMemoryUtilization()
 	{
-		return cumulativeOccupiedSize * 1.0 / currentSimulationTime;
+		return absoluteAverageMemoryUtilization;
 	}
 
-	
-
-	/* etsef ya 7abiby we gebly el simulation time enta */
 	public double getPercentageAverageMemoryUtilization()
 	{
-		return cumulativeOccupiedSize * 1.0 / 100 / 100;
+		return percentageAverageMemoryUtilization;
 	}
 
 

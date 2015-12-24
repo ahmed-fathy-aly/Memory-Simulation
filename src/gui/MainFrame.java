@@ -395,7 +395,6 @@ public class MainFrame extends JFrame
 		labelAvgSystemTime.setText(statistics.getAverageTimeInSystem() + "");
 		labelFinishedProcesses.setText(statistics.getNumberFinishedProcesses()+ "");
 		labelMemoryUtiilzation.setText(statistics.getPercentageAverageMemoryUtilization() + "");
-		
 	}
 
 	protected void reset()

@@ -16,7 +16,8 @@ import exceptions.NoSpaceAvailableException;
 public class SimulationController
 {
 	/* constants */
-
+	
+	
 	/* fields */
 	private List<Hole> holes;
 	private List<Process> processes, queue;
@@ -30,7 +31,7 @@ public class SimulationController
 
 	/* el fields elly 7abiby beya5odha mn el GUI */
 	private String algorithm;
-	private int iniitialHoleSize, averageInterrival, meanProcessSize;
+	private int memorySize, averageInterrival, meanProcessSize;
 	private double varianceProcessSize;
 
 	/* constructor */
@@ -40,15 +41,20 @@ public class SimulationController
 		this.processes = new ArrayList<>();
 		this.headEvent = null;
 		this.queue = new ArrayList<>();
+		
 		this.interArrivalTimeGenerator = new ExponentialRandomGenerator(0.2);
 		this.serviceTimeGenerator = new UniformRandomGenerator(1, 10);
 		this.processSizeGenerator = new GaussianRandomGenerator(100, 1);
+		
 		this.currentSimulationTime = 0;
 		this.previousEventTime = 0;
 		this.occupiedSize = 0;
 		this.numProcesses = 0;
+		this.memorySize = 0;
+		this.averageInterrival = 0;
+		this.meanProcessSize = 0;
+		this.varianceProcessSize = 0;
 		this.statistics = new Statistics();
-		this.eventsDescription = "";
 	}
 
 	/* setters and getters */
@@ -69,27 +75,31 @@ public class SimulationController
 
 	public void setMemorySize(int memorySize)
 	{
-		this.iniitialHoleSize = memorySize;
+		this.memorySize = memorySize;
 	}
 
 	public void setAverageInterrival(int averageInterrival)
 	{
 		this.averageInterrival = averageInterrival;
+		this.interArrivalTimeGenerator = new ExponentialRandomGenerator(1.0 / this.averageInterrival);
 	}
 
 	public void setMeanProcessSize(int meanProcessSize)
 	{
 		this.meanProcessSize = meanProcessSize;
+		this.processSizeGenerator = new GaussianRandomGenerator(this.meanProcessSize, this.varianceProcessSize);
+
 	}
 
 	public void setVarianceProcessSize(double varianceProcessSize)
 	{
 		this.varianceProcessSize = varianceProcessSize;
+		this.processSizeGenerator = new GaussianRandomGenerator(this.meanProcessSize, this.varianceProcessSize);
 	}
 
 	public Statistics getStatistics()
 	{
-
+		statistics.computeStatistics(currentSimulationTime, memorySize);
 		return statistics;
 	}
 	
@@ -111,9 +121,10 @@ public class SimulationController
 
 		// add the process to that hole
 		newProcess.setMemoryEntryTime(currentSimulationTime);
-		firstHole.addProcess(newProcess);
-		processes.add(newProcess);
 		scheduleDepartureEvent(newProcess);
+		firstHole.addProcess(newProcess);
+		occupiedSize += newProcess.getSize();
+		processes.add(newProcess);
 		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
 
 		// remove the hole if its size became zero
@@ -135,9 +146,10 @@ public class SimulationController
 
 		// add the process to that hole
 		newProcess.setMemoryEntryTime(currentSimulationTime);
-		bestHole.addProcess(newProcess);
-		processes.add(newProcess);
 		scheduleDepartureEvent(newProcess);
+		bestHole.addProcess(newProcess);
+		occupiedSize += newProcess.getSize();
+		processes.add(newProcess);
 		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
 
 		// remove the hole if its size became zero
@@ -159,9 +171,10 @@ public class SimulationController
 
 		// add the process to that hole
 		newProcess.setMemoryEntryTime(currentSimulationTime);
-		worstHole.addProcess(newProcess);
-		processes.add(newProcess);
 		scheduleDepartureEvent(newProcess);
+		worstHole.addProcess(newProcess);
+		occupiedSize += newProcess.getSize();
+		processes.add(newProcess);
 		eventsDescription += newProcess.getName() + " enters memory at t = " + currentSimulationTime + "\n";
 
 		// remove the hole if its size became zero
@@ -171,10 +184,18 @@ public class SimulationController
 
 	public void initialize()
 	{
+		// holes and processes
 		holes.clear();
 		processes.clear();
 		queue.clear();
-		holes.add(new Hole(0, iniitialHoleSize));
+		holes.add(new Hole(0, memorySize));
+		
+		// generators
+		this.interArrivalTimeGenerator = new ExponentialRandomGenerator(averageInterrival);
+		this.serviceTimeGenerator = new UniformRandomGenerator(2, 10);
+		this.processSizeGenerator = new GaussianRandomGenerator(meanProcessSize, varianceProcessSize);
+		
+		// simulation details
 		currentSimulationTime = 0;
 		previousEventTime = 0;
 		headEvent = null;
@@ -182,7 +203,8 @@ public class SimulationController
 		numProcesses = 1;
 		occupiedSize = 0;
 		addEvent(new Event(Event.Type.PROCESS_ARRIVAL, 0,
-				new Process((int) interArrivalTimeGenerator.nextRand(), "P0", 0)));
+				new Process((int) processSizeGenerator.nextRand(), "P0", 0)));
+		
 	}
 
 	private void mergeHoles()
@@ -196,7 +218,8 @@ public class SimulationController
 				return Integer.compare(o1.getStart(), o2.getStart());
 			}
 		});
-
+		
+		
 		// either append a hole or merge to the previous
 		Hole prev = null;
 		LinkedList<Hole> newHoles = new LinkedList<>();
@@ -208,14 +231,14 @@ public class SimulationController
 				newHoles.add(hole);
 				prev = hole;
 			}
-		holes = newHoles;
+		holes = newHoles;		
 	}
 
 	public String singleStep()
 	{
 		Event event = pickHeadEvent();
 		if (event == null)
-			return "System is static";
+			return "System is static\n";
 
 		// initialize
 		eventsDescription = "";
@@ -226,9 +249,9 @@ public class SimulationController
 
 			// handle event
 			if (event.getType() == Event.Type.PROCESS_ARRIVAL)
-				processArrivalHandler(event, algorithm);
+				processArrivalHandler(event);
 			else if (event.getType() == Event.Type.PROCESS_DEPARTURE)
-				processDepartureHandler(event, algorithm);
+				processDepartureHandler(event);
 
 			// update statistics
 			updateSigmaStatistics();
@@ -248,23 +271,24 @@ public class SimulationController
 		statistics.updateOccupiedSize(occupiedSize, currentSimulationTime, previousEventTime);
 	}
 
-	private void processDepartureHandler(Event event, String algorithm)
+	private void processDepartureHandler(Event event)
 	{
 		Process departuringProcess = event.getProcess();
+		int start = departuringProcess.getStart();
+		int size = departuringProcess.getSize();
 		processes.remove(departuringProcess);
-		occupiedSize -= departuringProcess.getSize();
-		holes.add(new Hole(departuringProcess.getStart(), departuringProcess.getEnd()));
-		mergeHoles();
-
-		getFromQueue(algorithm);
-
-		departuringProcess.setDepartureTime(currentSimulationTime);
-		statistics.updateDepartureStatistics(departuringProcess);
-
+		occupiedSize -= size;
+		holes.add(new Hole(start, size));
+		mergeHoles();		
 		eventsDescription += departuringProcess.getName() + " departure at t = " + currentSimulationTime + "\n";
+		statistics.updateDepartureStatistics(departuringProcess);
+		
+		getFromQueue();
+		departuringProcess.setDepartureTime(currentSimulationTime);
+		
 	}
 
-	private void getFromQueue(String algorithm)
+	private void getFromQueue()
 	{
 		for (int i = 0; i < queue.size(); i++)
 			if (algorithm == "First Fit")
@@ -300,7 +324,7 @@ public class SimulationController
 
 	}
 
-	private void processArrivalHandler(Event event, String algorithm)
+	private void processArrivalHandler(Event event)
 	{
 		Process arrivingProcess = event.getProcess();
 		eventsDescription += arrivingProcess.getName() + " arrives at t = " + currentSimulationTime + " with size = "
@@ -342,13 +366,14 @@ public class SimulationController
 	{
 		int serviceTime = (int) serviceTimeGenerator.nextRand();
 		int departureTime = currentSimulationTime + serviceTime;
+		process.setDepartureTime(departureTime);
 		Event newEvent = new Event(Event.Type.PROCESS_DEPARTURE, departureTime, process);
 		addEvent(newEvent);
 	}
 
 	private void scheduleArrivalEvent()
 	{
-		int interArrivaltime = (int) (interArrivalTimeGenerator.nextRand());
+		int interArrivaltime = (int) Math.ceil((interArrivalTimeGenerator.nextRand()));
 		int arrivalTime = currentSimulationTime + interArrivaltime;
 		int size = (int) processSizeGenerator.nextRand();
 		Process newProcess = new Process(size, "P" + numProcesses, arrivalTime);
@@ -404,17 +429,6 @@ public class SimulationController
 		}
 
 	}
-
-	// private void printEvents() {
-	// Event event = headEvent;
-	// System.out.println("events list:");
-	// while (event != null) {
-	// event.print();
-	// event = event.getNextEvent();
-	// }
-	// System.out.println("-----------------");
-	//
-	// }
 
 	public static void main(String[] args)
 	{

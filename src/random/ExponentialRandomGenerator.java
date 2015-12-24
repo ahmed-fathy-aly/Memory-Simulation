@@ -11,6 +11,6 @@ public class ExponentialRandomGenerator extends RandomGenerator {
 	@Override
 	public double nextRand() {
 		double r = super.nextRand();		
-		return -Math.log(r) / lambda;
+		return -Math.log(1 - r) / lambda;
 	}
 }
